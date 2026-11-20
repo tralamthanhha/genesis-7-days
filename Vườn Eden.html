@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vườn Eden</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&display=swap">
+<style>
+:root{--bg:#fff3d6;--fg:#24232b;--ac:#1f6f46;--on:#fff;--ac2:#e08a00;--sf:rgba(255,248,231,.95);color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#17221c;--fg:#f7f3e3;--ac:#7be0a1;--on:#10221a;--ac2:#ffc94d;--sf:rgba(23,34,28,.95);color-scheme:dark}}
+:root[data-theme=dark]{--bg:#17221c;--fg:#f7f3e3;--ac:#7be0a1;--on:#10221a;--ac2:#ffc94d;--sf:rgba(23,34,28,.95);color-scheme:dark}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--fg);font:800 1rem/1.5 Nunito,system-ui,sans-serif}
+[hidden]{display:none!important}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font:inherit;min-height:44px;min-width:44px;padding:.5rem 1rem;border:0;border-radius:14px;background:var(--ac);color:var(--on);cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+button:focus-visible{outline:3px solid var(--ac2);outline-offset:2px}
+button[aria-pressed=true]{outline:3px solid var(--ac2);transform:translateY(-4px)}
+#top{position:fixed;top:0;left:0;right:0;display:flex;gap:.5rem;align-items:center;padding:calc(env(safe-area-inset-top,0px) + .5rem) .75rem .5rem;pointer-events:none}
+#top button,#hud{pointer-events:auto}
+#hud{background:var(--sf);padding:.25rem .75rem;border-radius:12px}#hud:empty{display:none}
+.card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,520px);max-height:78%;overflow:auto;background:var(--sf);border-radius:22px;padding:1.25rem;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.3);box-sizing:border-box;z-index:2}
+.card.dlg{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + .75rem);transform:translateX(-50%)}
+#hp{z-index:5}
+#sy{top:calc(env(safe-area-inset-top,0px) + 4rem);transform:translateX(-50%);pointer-events:none;width:min(92vw,460px);padding:.75rem 1rem;z-index:3}
+.card h1{font-size:2rem;margin:.25rem 0}.card h2{font-size:1.5rem;margin:.25rem 0}.card p{margin:.5rem 0}
+.card button{display:block;width:100%;margin:.5rem 0}
+#tbr{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + .5rem);left:50%;transform:translateX(-50%);display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;max-width:96vw}
+#pad{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 1rem);display:flex;justify-content:space-between;align-items:flex-end;padding:0 1rem;pointer-events:none}
+#pad button{pointer-events:auto;touch-action:none;user-select:none;width:56px;height:56px;border-radius:50%;opacity:.88;padding:0}
+#dp{display:grid;grid-template:repeat(3,56px)/repeat(3,56px);grid-template-areas:". u ." "l . r" ". d .";gap:4px}
+[data-k=u]{grid-area:u}[data-k=l]{grid-area:l}[data-k=r]{grid-area:r}[data-k=d]{grid-area:d}
+#jb{width:84px!important;height:84px!important}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="top"><button id="bm" onclick="go('menu')"></button><span id="hud"></span><span style="flex:1;pointer-events:none"></span><button id="bh" onclick="help()">❓</button><button id="bs">🔊</button><button id="bl"></button></div>
+<div id="pnl" class="card" hidden></div>
+<div id="hp" class="card" hidden></div>
+<div id="sy" class="card" hidden></div>
+<div id="tbr" hidden></div>
+<div id="pad" hidden><div id="dp"><button data-k="u">▲</button><button data-k="l">◀</button><button data-k="d">▼</button><button data-k="r">▶</button></div><button id="jb" data-k="j">⤒</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* Vườn Eden: game 3D Sáng Thế Ký (Three.js r128). Mở index.html bằng trình duyệt là chạy, không cần build. */
+/* ---------- i18n + lưu trữ ---------- */
+const $=id=>document.getElementById(id),rnd=(a,b)=>a+Math.random()*(b-a);
+const ld=(k,d)=>{try{return localStorage.getItem('eden_'+k)||d}catch(e){return d}},sv=(k,v)=>{try{localStorage.setItem('eden_'+k,v)}catch(e){}};
+let lang=ld('lang','vi')==='en'?'en':'vi',mode='menu',mute=false;
+const L={
+vi:{name:"Vườn Eden",sub:"Sáng Thế Ký cho bé",story:"📖 Câu chuyện",create:"🎨 Sáng tạo",quiz:"❓ Đố vui",obby:"🏃 Vượt chướng ngại",menu:"Menu",next:"Tiếp tục ▶",again:"🔁 Chơi lại",ok:"Đúng rồi!",no:"Chưa đúng",best:"Kỷ lục",win:"Hoàn thành!",day:"Ngày",lv:"Màn",help:"Hướng dẫn",snd:"Âm thanh",got:"Đã hiểu",undo:"Hoàn tác",clr:"Xóa hết",photo:"Chụp ảnh",save:"Nhấn giữ (hoặc nhấp chuột phải) vào ảnh để lưu!",nogl:"Trình duyệt của bạn không hỗ trợ WebGL.",
+it:["Cây","Hoa","Đá","Hổ","Voi","Mây","Chim","Mặt trời","Mặt trăng"],pad:["Lên","Trái","Xuống","Phải","Nhảy"],
+h_menu:"Chọn một chế độ để bắt đầu. Không quảng cáo, không thu thập dữ liệu cá nhân.",
+h_story:"Đọc lời Chúa phán, rồi chạm vào cảnh để tạo nên thế giới. Kéo để xoay, cuộn chuột để phóng to.",
+h_create:"Chọn một biểu tượng, rồi chạm vào mặt đất để đặt. Dùng 📷 để chụp ảnh.",
+h_quiz:"Chọn đáp án đúng. Mỗi câu có dẫn chiếu Kinh Thánh.",
+h_obby:"Máy tính: W A S D hoặc mũi tên để đi, Space để nhảy, kéo chuột để xoay. Cảm ứng: dùng nút trên màn hình. Nhặt 🍎, nền hồng là điểm lưu, chạm nền vàng để thắng!",
+nIn:"Chào bạn! Mình là thiên thần nhỏ. Cùng ôn lại câu chuyện Sáng Thế Ký nhé!",nOk:"Giỏi quá!",nNo:"Chưa đúng rồi, mình gạch đáp án đó đi. Bạn thử lại nhé!",nEnd:"Bạn thật tuyệt vời! Chúa yêu thương bạn.",
+lvm:[["Ngày 3: Đất và cây. Hãy nhảy qua các gốc cây để tới vườn!","Chúa phán: “Đất hãy mọc cây cỏ.” Cây nào cũng sai trái!","Cây trái đầy đất, thật tốt lành! Hãy sang Ngày 4."],["Ngày 4: Mặt trời, mặt trăng, sao. Hãy bước trên những đám mây!","Chúa treo các vì sao trên trời để chia ngày và đêm.","Ngôi sao sáng nhất đây rồi! Hãy sang Ngày 5."],["Ngày 5: Nước đầy cá, trời đầy chim. Nhảy trên lá sen nhé!","Cá tung tăng, chim bay lượn. Chúa ban phước cho chúng!","Ađam và Eva trong vườn Eden. Chúa thấy mọi sự đều rất tốt lành!"]],
+days:[["Ánh sáng","Chúa phán: “Hãy có ánh sáng!” Hãy chạm vào bóng tối để bật ánh sáng."],["Bầu trời và nước","Chúa tách nước khỏi bầu trời. Hãy chạm để tách nước và tạo mây."],["Đất, cây và hoa","Đất liền hiện ra! Hãy chạm vào đất để trồng cây và hoa."],["Mặt trời, mặt trăng, sao","Chúa làm ra mặt trời, mặt trăng và các vì sao. Hãy chạm để treo chúng lên trời."],["Cá và chim","Nước đầy cá, trời đầy chim! Hãy chạm để thả chúng ra."],["Thú vật và con người","Chúa tạo ra muông thú, rồi Ađam và Eva. Hãy chạm để tạo ra họ."],["Nghỉ ngơi","Chúa thấy mọi điều Ngài làm đều rất tốt đẹp. Ngày thứ bảy Ngài nghỉ ngơi. Cảm ơn Chúa!"]],
+qz:[["Chúa tạo ra gì trước tiên vào ngày thứ nhất?",["Ánh sáng","Các vì sao","Cá biển"],0,"St 1:3"],["Cây cối và hoa được tạo ra vào ngày nào?",["Ngày 1","Ngày 3","Ngày 5"],1,"St 1:11–12"],["Ngày thứ năm, Chúa tạo ra những gì?",["Con voi","Mặt trăng","Cá và chim"],2,"St 1:20–23"],["Người đàn ông đầu tiên tên là gì?",["Ađam","Nô-ê","Áp-ra-ham"],0,"St 2:7"],["Ngày thứ bảy, Chúa làm gì?",["Tạo ra mặt trời","Nghỉ ngơi","Tạo ra loài cá"],1,"St 2:2–3"]]},
+en:{name:"Eden Garden",sub:"Genesis for kids",story:"📖 Story",create:"🎨 Create",quiz:"❓ Quiz",obby:"🏃 Obby",menu:"Menu",next:"Continue ▶",again:"🔁 Play again",ok:"Correct!",no:"Not quite",best:"Best",win:"Well done!",day:"Day",lv:"Level",help:"Help",snd:"Sound",got:"Got it",undo:"Undo",clr:"Clear all",photo:"Take photo",save:"Press and hold (or right-click) the picture to save it!",nogl:"Your browser does not support WebGL.",
+it:["Tree","Flower","Rock","Tiger","Elephant","Cloud","Bird","Sun","Moon"],pad:["Up","Left","Down","Right","Jump"],
+h_menu:"Pick a mode to start. No ads, no personal data collected.",
+h_story:"Read what God says, then tap the scene to build the world. Drag to turn, scroll to zoom.",
+h_create:"Pick an icon, then tap the ground to place it. Use 📷 to take a photo.",
+h_quiz:"Choose the right answer. Every question points to a Bible verse.",
+h_obby:"Desktop: W A S D or arrows to move, Space to jump, drag the mouse to turn. Touch: use the on-screen buttons. Collect 🍎, pink pads are checkpoints, reach the gold pad to win!",
+nIn:"Hi! I’m the little angel. Let’s revisit the story of Genesis!",nOk:"Well done!",nNo:"Not quite. I crossed that one out, try again!",nEnd:"You were wonderful! God loves you.",
+lvm:[["Day 3: Land and trees. Hop across the tree stumps to reach the garden!","God said, “Let the land grow plants.” Every tree bears fruit!","Fruit fills the land, and it is good! On to Day 4."],["Day 4: Sun, moon and stars. Step across the clouds!","God set the stars in the sky to part day from night.","The brightest star! On to Day 5."],["Day 5: Fish fill the water and birds the sky. Hop on the lily pads!","Fish leap and birds soar. God blesses them!","Adam and Eve in the garden of Eden. God saw that everything was very good!"]],
+days:[["Light","God said, “Let there be light!” Tap the darkness to turn on the light."],["Sky and water","God separated the waters from the sky. Tap to part the water and make clouds."],["Land, trees and flowers","Dry land appeared! Tap the ground to plant trees and flowers."],["Sun, moon and stars","God made the sun, the moon and the stars. Tap to hang them in the sky."],["Fish and birds","The waters filled with fish and the sky with birds! Tap to set them free."],["Animals and people","God made the animals, then Adam and Eve. Tap to create them."],["Rest","God saw everything He made, and it was very good. He rested on the seventh day. Thank you, God!"]],
+qz:[["What did God create first, on day one?",["Light","The stars","Fish"],0,"Gen 1:3"],["On which day did God make plants and trees?",["Day 1","Day 3","Day 5"],1,"Gen 1:11–12"],["What did God make on day five?",["Elephants","The moon","Fish and birds"],2,"Gen 1:20–23"],["Who was the first man?",["Adam","Noah","Abraham"],0,"Gen 2:7"],["What did God do on the seventh day?",["Made the sun","Rested","Made fish"],1,"Gen 2:2–3"]]}};
+const t=k=>L[lang][k];
+const TOUCH=matchMedia('(pointer:coarse)').matches||'ontouchstart' in window;
+
+/* ---------- Three.js: renderer, đèn, camera ---------- */
+let R;try{R=new THREE.WebGLRenderer({canvas:$('c'),antialias:true})}catch(e){}
+if(!R){document.body.innerHTML='<p style="padding:2rem;font-size:1.25rem">'+t('nogl')+'</p>';throw new Error('no WebGL')}
+R.setPixelRatio(Math.min(devicePixelRatio,2));R.shadowMap.enabled=true;
+const S=new THREE.Scene(),cam=new THREE.PerspectiveCamera(55,1,.1,300);S.background=new THREE.Color();
+const C0=new THREE.Color(0x06081a),C1=new THREE.Color(0x8fd8ff);
+const hemi=new THREE.HemisphereLight(0xffffff,0x88aa66,.9),sun=new THREE.DirectionalLight(0xfff2cc,.9);
+sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-25,right:25,top:25,bottom:-25});sun.shadow.camera.updateProjectionMatrix();
+S.add(hemi,sun,sun.target);
+/* Bầu trời: mái vòm chuyển màu từ chân trời xanh nhạt lên xanh đậm */
+const sky=new THREE.Mesh(new THREE.SphereGeometry(150,16,12),new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,depthWrite:false}));
+{const p=sky.geometry.attributes.position,c=[],a=new THREE.Color(0xd4f1ff),b=new THREE.Color(0x3d9be9),k=new THREE.Color();for(let i=0;i<p.count;i++){k.copy(a).lerp(b,Math.pow(Math.max(0,p.getY(i)/150),.7));c.push(k.r,k.g,k.b)}sky.geometry.setAttribute('color',new THREE.Float32BufferAttribute(c,3))}
+sky.renderOrder=-1;sky.frustumCulled=false;S.add(sky);
+let world=new THREE.Group(),anims=[],bt=1,br=1;S.add(world);
+function wipe(){S.remove(world);world=new THREE.Group();S.add(world);anims=[]}
+function rs(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',rs);addEventListener('orientationchange',rs);
+let yaw=0,pit=.5,dist=22;const tgt=new THREE.Vector3(0,2,0),tv=new THREE.Vector3();
+function orb(){cam.position.set(tgt.x+Math.sin(yaw)*Math.cos(pit)*dist,tgt.y+Math.sin(pit)*dist,tgt.z+Math.cos(yaw)*Math.cos(pit)*dist);cam.lookAt(tgt)}
+
+/* ---------- Âm thanh (WebAudio, không cần file) ---------- */
+let ac;function snd(f,d=.15){if(mute)return;try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.15,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+
+/* ---------- Mô hình khối kiểu Roblox/Minecraft ---------- */
+const M={},mat=c=>M[c]||(M[c]=new THREE.MeshLambertMaterial({color:c}));
+function box(w,h,d,c,x,y,z,p){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;(p||world).add(m);return m}
+function limb(g,c,x,y){const p=new THREE.Group();p.position.set(x,y,0);box(.25,.75,.25,c,0,-.375,0,p);g.add(p);return p}
+/* Vật liệu + hàm dựng hình tròn trịa (cầu, nón, quầng sáng) cho mặt trời, mặt trăng, mây, chim, cá */
+const GR=[0x3fa34d,0x58c26a,0x2f8a3e,0x7bd96b],CM=new THREE.MeshLambertMaterial({color:0xffffff,emissive:0x8a9bb0}),SM=new THREE.MeshBasicMaterial({color:0xffb703}),SC=new THREE.MeshBasicMaterial({color:0xffd23f}),MM=new THREE.MeshBasicMaterial({color:0xf5f3e6});
+function ball(r,c,x,y,z,sx,sy,sz,p){const m=new THREE.Mesh(new THREE.SphereGeometry(r,10,8),mat(c));m.position.set(x,y,z);m.scale.set(sx||1,sy||1,sz||1);m.castShadow=true;(p||world).add(m);return m}
+function cone(r,h,c,x,y,z,rx,sx,p){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,4),mat(c));m.position.set(x,y,z);m.rotation.x=rx;m.scale.x=sx;(p||world).add(m);return m}
+function glow(c,s){const k=document.createElement('canvas');k.width=k.height=64;const x=k.getContext('2d'),g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,c);g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);const p=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k),transparent:true,depthWrite:false}));p.scale.setScalar(s);return p}
+/* Người rừng: áo vỏ cây, váy lá, dây leo thắt lưng, vai lá; Adam đội vòng lá, Eva cài hoa. Mắt to, miệng cười. */
+function human(skin,top,pants,hair,girl){const g=new THREE.Group(),hl=girl?0x9a6a3c:0x4a3d6b;
+ box(.52,.75,.27,top,0,1.125,0,g);box(.2,.75,.28,girl?0xd9b27a:0xc99a5b,0,1.125,0,g);box(.55,.09,.3,0x6b8e23,0,.93,0,g);
+ box(.32,.12,.32,GR[1],-.375,1.52,0,g);box(.32,.12,.32,GR[1],.375,1.52,0,g);box(.3,.1,.29,GR[0],0,1.46,0,g);
+ for(let i=0;i<8;i++)for(let j=0;j<(girl?2:1);j++){const a=(i+j*.5)/8*6.283;box(.24,.4,.07,GR[(i+j)%4],Math.sin(a)*.31,.76-j*.2,Math.cos(a)*.23,g).rotation.y=a}
+ box(.5,.5,.5,skin,0,1.75,0,g);
+ [-1,1].forEach(s=>{box(.15,.18,.02,0xffffff,s*.12,1.76,.26,g);box(.08,.14,.02,0x151515,s*.11,1.76,.27,g);box(.17,.05,.02,0x151515,s*.12,1.87,.26,g)});
+ box(.16,.04,.02,0x8a3b3b,0,1.6,.26,g);box(.04,.04,.02,0x8a3b3b,-.1,1.63,.26,g);box(.04,.04,.02,0x8a3b3b,.1,1.63,.26,g);
+ if(girl)[-1,1].forEach(s=>box(.08,.05,.02,0xff9aa8,s*.19,1.66,.26,g));
+ box(.56,.2,.56,hair,0,2.05,0,g);box(.2,.08,.58,hl,-.15,2.14,0,g);box(.2,.1,.06,hair,-.15,1.97,.27,g);box(.2,.12,.06,hair,.12,1.96,.27,g);
+ box(.06,.32,.5,hair,-.28,1.82,0,g);box(.06,.32,.5,hair,.28,1.82,0,g);box(.56,girl?.8:.4,.08,hair,0,girl?1.55:1.8,-.28,g);
+ if(girl){box(.18,.18,.05,0xffffff,.22,2.02,.28,g);box(.08,.08,.06,0xffd23f,.22,2.02,.29,g)}
+ else for(let i=0;i<8;i++){const a=i/8*6.283;box(.12,.12,.12,GR[i%4],Math.sin(a)*.31,2,Math.cos(a)*.31,g).rotation.y=a}
+ g.arms=[limb(g,skin,-.375,1.5),limb(g,skin,.375,1.5)];g.legs=[limb(g,pants,-.125,.75),limb(g,pants,.125,.75)];return g}
+const ADAM=()=>human(0xf2c9a0,0x9b6a3a,0xf2c9a0,0x2b2438),EVA=()=>human(0xf5d0b0,0xa8743f,0xf5d0b0,0x6b4423,1);
+function swing(g,T,a){const s=Math.sin(T*9)*a;g.legs[0].rotation.x=s;g.legs[1].rotation.x=-s;g.arms[0].rotation.x=-s;g.arms[1].rotation.x=s}
+function animal(c,s,tr){const g=new THREE.Group(),o=new THREE.Group();
+ box(1,.6,.5,c,0,.7,0,g);box(.4,.4,.4,c,.6,.95,0,g);[[-.35,-.15],[.35,-.15],[-.35,.15],[.35,.15]].forEach(q=>box(.15,.4,.15,c,q[0],.2,q[1],g));
+ if(tr)box(.12,.5,.12,c,.85,.65,0,g);else{box(.12,.62,.52,0x3a2a10,-.2,.7,0,g);box(.12,.62,.52,0x3a2a10,.15,.7,0,g)}
+ g.scale.setScalar(s);o.add(g);return o}
+const ITEMS={
+ tree:()=>{const g=new THREE.Group();box(.5,1.6,.5,0x8b5a2b,0,.8,0,g);box(2,1.4,2,0x3fa34d,0,2.2,0,g);box(1.3,1.1,1.3,0x58c26a,0,3.2,0,g);return g},
+ flower:()=>{const g=new THREE.Group();box(.1,.6,.1,0x3a9d4a,0,.3,0,g);box(.4,.3,.4,[0xff5d8f,0xffd23f,0xb06cff,0xff8a3d][rnd(0,4)|0],0,.7,0,g);return g},
+ rock:()=>{const g=new THREE.Group();box(1.2,.8,1,0x9aa0a6,0,.4,0,g);box(.7,.5,.7,0xb4bac0,.3,.95,0,g);return g},
+ tiger:()=>animal(0xf59a23,1),elephant:()=>animal(0x9aa5b1,1.5,1),
+ cloud:()=>{const g=new THREE.Group();[[0,0,0,1.1],[1.1,-.1,.1,.85],[-1.2,-.1,0,.8],[.4,.55,0,.8],[-.5,.45,.1,.65]].forEach(a=>{const m=ball(a[3],0xffffff,a[0],a[1],a[2],1,.75,1,g);m.material=CM;m.castShadow=false});return g},
+ bird:()=>{const g=new THREE.Group(),c=[0x4aa3ff,0xff6b6b,0xffd23f,0x7be0a1][rnd(0,4)|0];
+  ball(.3,c,0,0,0,1,.9,1.3,g);ball(.2,c,0,.18,.32,1,1,1,g);cone(.07,.2,0xff9a3d,0,.15,.6,Math.PI/2,1,g);cone(.1,.3,c,0,.02,-.5,Math.PI/2,2.2,g);
+  [-1,1].forEach(s=>ball(.04,0x111111,s*.1,.24,.46,1,1,1,g));
+  g.w=[-1,1].map(s=>{const p=new THREE.Group();p.position.x=s*.25;ball(.3,0xf4f7ff,s*.3,0,0,1.2,.12,.8,p);g.add(p);return p});return g},
+ fish:()=>{const g=new THREE.Group(),c=[0xff9a3d,0x4ac8ff,0xff6b9d,0xffd23f][rnd(0,4)|0];
+  ball(.3,c,0,0,0,.6,.8,1.4,g);cone(.22,.4,c,0,0,-.55,Math.PI/2,.25,g);cone(.1,.25,c,0,.3,0,0,.25,g);[-1,1].forEach(s=>ball(.05,0x111111,s*.11,.08,.33,1,1,1,g));return g},
+ sun:()=>{const g=new THREE.Group(),s=ball(1.2,0xffd23f,0,0,0,1,1,1,g),ry=new THREE.Group();s.material=SC;s.castShadow=false;
+  for(let i=0;i<12;i++){const a=i/12*6.283,m=cone(.2,.9,0xffb703,Math.cos(a)*1.9,Math.sin(a)*1.9,0,0,1,ry);m.rotation.z=a-Math.PI/2;m.material=SM}
+  ball(.11,0x5a3000,-.42,.25,1.12,1,1,.4,g);ball(.11,0x5a3000,.42,.25,1.12,1,1,.4,g);box(.6,.09,.05,0x5a3000,0,-.3,1.14,g);
+  g.add(ry,glow('rgba(255,214,90,.9)',9));anims.push(t=>{ry.rotation.z=t*.4});return g},
+ moon:()=>{const g=new THREE.Group(),s=ball(1,0xf5f3e6,0,0,0,1,1,1,g);s.material=MM;s.castShadow=false;
+  [[.45,.4,.8,.28],[-.5,-.2,.82,.2],[.2,-.55,.8,.17],[-.35,.5,-.8,.22],[.5,-.1,-.85,.2]].forEach(a=>{ball(a[3],0xd7d5c4,a[0],a[1],a[2],1,1,.35,g).castShadow=false});
+  g.add(glow('rgba(190,210,255,.8)',6));return g}};
+const HI={cloud:8,sun:11,moon:11,bird:5};
+function place(k,p,sz){const g=ITEMS[k]();g.position.set(p.x,HI[k]||0,p.z);g.rotation.y=HI[k]>7?0:rnd(0,6.28);g.scale.setScalar(sz||rnd(.8,1.3));world.add(g);
+ if(k=='bird'){const ph=rnd(0,6);anims.push(t=>{g.w[0].rotation.z=Math.sin(t*10+ph)*.6;g.w[1].rotation.z=-g.w[0].rotation.z})}return g}
+let gr,sea,sn,mn,st;
+function garden(v){
+ sea=new THREE.Mesh(new THREE.PlaneGeometry(160,160),mat(0x3b9be8));sea.rotation.x=-Math.PI/2;sea.position.y=-.3;sea.receiveShadow=true;world.add(sea);
+ gr=new THREE.Mesh(new THREE.CylinderGeometry(12,12,1,10),mat(0x6cc36a));gr.position.y=-.5;gr.receiveShadow=true;world.add(gr);
+ sn=place('sun',{x:10,z:-10});mn=place('moon',{x:-10,z:-10});
+ const q=[];for(let i=0;i<150;i++)q.push(rnd(-1,1)*50,rnd(15,45),rnd(-1,1)*50);
+ const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(q,3));
+ st=new THREE.Points(gm,new THREE.PointsMaterial({color:0xffffff,size:.8}));world.add(st);
+ [sea,gr,sn,mn].forEach(o=>o.visible=!!v);st.visible=false}
+function show(){place('tree',{x:-6,z:-3},1.4);place('tree',{x:6,z:-4},1.2);place('tiger',{x:4,z:3});place('elephant',{x:-5,z:4});place('flower',{x:2,z:-2});
+ [[ADAM,-1.2],[EVA,1.2]].forEach(a=>{const m=a[0]();m.position.set(a[1],0,0);m.scale.setScalar(1.3);world.add(m);anims.push(t=>{m.arms[1].rotation.z=2.5+Math.sin(t*6)*.3})})}
+function confetti(c){const cs=[0xff5d8f,0xffd23f,0x4aa3ff,0x6cc36a,0xb06cff];for(let i=0;i<50;i++){const m=box(.2,.2,.2,cs[i%5],c.x,c.y,c.z),v=new THREE.Vector3(rnd(-4,4),rnd(4,9),rnd(-4,4));let life=2.5;anims.push((t,dt)=>{v.y-=12*dt;m.position.addScaledVector(v,dt);m.rotation.x+=dt*6;if((life-=dt)<0){world.remove(m);return 1}})}}
+
+/* ---------- UI ---------- */
+function ui(h,c){const p=$('pnl');p.hidden=!h;p.className='card '+(c||'');p.innerHTML=h||''}
+function menu(){ui(`<h1>🌳 ${t('name')}</h1><p>${t('sub')}</p>`+['story','create','quiz','obby'].map(k=>`<button onclick="go('${k}')">${t(k)}</button>`).join(''))}
+function help(){$('hp').innerHTML=`<p>${t('h_'+mode)}</p><button onclick="hh()">${t('got')}</button>`;$('hp').hidden=false}
+function hh(){$('hp').hidden=true;if(mode=='obby'){tm=0;say(L[lang].lvm[lv][0])}}
+let sto;function say(h){const e=$('sy');e.textContent='👼 '+h;e.hidden=false;clearTimeout(sto);sto=setTimeout(()=>{e.hidden=true},5000)}
+function applyLang(){document.documentElement.lang=lang;document.title=t('name');$('bm').textContent='🏠 '+t('menu');
+ [['bh','help'],['bs','snd']].forEach(a=>{$(a[0]).setAttribute('aria-label',t(a[1]));$(a[0]).title=t(a[1])});
+ $('bl').textContent='🌐 '+(lang=='vi'?'EN':'VI');document.querySelectorAll('#pad button').forEach((b,i)=>b.setAttribute('aria-label',t('pad')[i]))}
+$('bs').onclick=()=>{mute=!mute;$('bs').textContent=mute?'🔇':'🔊'};
+const RR={menu:()=>menu(),story:()=>sday(),quiz:()=>qshow(),create:()=>tool()};
+$('bl').onclick=()=>{lang=lang=='vi'?'en':'vi';sv('lang',lang);applyLang();(RR[mode]||(()=>0))();if(!$('hp').hidden)help()};
+
+/* ---------- Điều khiển: chuột/cảm ứng + bàn phím ---------- */
+const cv=$('c'),rc=new THREE.Raycaster(),pl=new THREE.Plane(new THREE.Vector3(0,1,0),0),pt=new THREE.Vector3();let pd=null,keys={},tp={};
+cv.addEventListener('pointerdown',e=>{pd={x:e.clientX,y:e.clientY,m:0};try{cv.setPointerCapture(e.pointerId)}catch(x){}});
+cv.addEventListener('pointermove',e=>{if(!pd)return;const dx=e.clientX-pd.x,dy=e.clientY-pd.y;pd.m+=Math.abs(dx)+Math.abs(dy);pd.x=e.clientX;pd.y=e.clientY;yaw-=dx*.006;pit=Math.max(.1,Math.min(1.3,pit+dy*.006))});
+cv.addEventListener('pointerup',e=>{if(pd&&pd.m<8)tap(e);pd=null});
+cv.addEventListener('pointercancel',()=>{pd=null});
+cv.addEventListener('wheel',e=>{dist=Math.max(6,Math.min(40,dist+e.deltaY*.02));e.preventDefault()},{passive:false});
+addEventListener('keydown',e=>{keys[e.key.length>1?e.key:e.key.toLowerCase()]=1;if(mode=='obby'&&[' ','ArrowUp','ArrowDown'].includes(e.key))e.preventDefault()});
+addEventListener('keyup',e=>{keys[e.key.length>1?e.key:e.key.toLowerCase()]=0});
+document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;b.addEventListener('pointerdown',e=>{tp[k]=1;e.preventDefault()});['pointerup','pointercancel','pointerleave'].forEach(v=>b.addEventListener(v,()=>{tp[k]=0}))});
+function tap(e){if(mode!='story'&&mode!='create')return;
+ rc.setFromCamera({x:e.clientX/innerWidth*2-1,y:-(e.clientY/innerHeight)*2+1},cam);if(!rc.ray.intersectPlane(pl,pt))return;
+ const p=pt.clone();p.y=0;if(p.length()>11)p.setLength(11);snd(520+rnd(0,300));mode=='story'?stap(p):cput(p)}
+
+/* ---------- Story Mode: 7 ngày sáng tạo ---------- */
+let day=0,n=0;const need=[1,1,5,3,4,5,0];
+const A=[
+ ()=>{bt=1},
+ ()=>{sea.visible=true;for(let i=0;i<6;i++)place('cloud',{x:rnd(-16,16),z:rnd(-16,16)})},
+ p=>{gr.visible=true;place(Math.random()<.6?'tree':'flower',p)},
+ (p,i)=>{[sn,mn,st][i].visible=true},
+ p=>{const b=place('bird',p),r=rnd(4,9),s=rnd(.3,.7),ph=rnd(0,6),f=ITEMS.fish(),r2=rnd(14,20),s2=rnd(.2,.5);world.add(f);
+  anims.push(t=>{const a=t*s+ph,c=t*s2+ph;b.position.set(Math.cos(a)*r,5+Math.sin(t)*.5,Math.sin(a)*r);b.rotation.y=-a;f.position.set(Math.cos(c)*r2,Math.abs(Math.sin(t*2+ph))-.2,Math.sin(c)*r2);f.rotation.y=-c})},
+ (p,i)=>{if(i<3)place(['tiger','elephant','tiger'][i],p);else{const h=(i==3?ADAM:EVA)();h.position.set(p.x,0,p.z);h.rotation.y=rnd(-.8,.8);h.scale.setScalar(1.3);world.add(h);anims.push(t=>{h.arms[1].rotation.z=2.5+Math.sin(t*6)*.3})}}];
+function story(){day=Math.min(6,+ld('day',0)||0);n=0;bt=day?1:0;
+ for(let d=0;d<day;d++)for(let i=0;i<need[d];i++)A[d](new THREE.Vector3(rnd(-8,8),0,rnd(-8,8)).clampLength(0,10),i);sday()}
+function sday(){const d=L[lang].days[day],k=need[day];
+ ui(`<h2>${t('day')} ${day+1}/7: ${d[0]}</h2><p>✨ ${d[1]}</p>`+(k&&n<k?`<p>👆 ${n}/${k}</p>`:`<button onclick="nxt()">${day<6?t('next'):'🏠 '+t('menu')}</button>`),'dlg')}
+function stap(p){if(n>=need[day])return;A[day](p,n++);sday()}
+function nxt(){if(day<6){day++;n=0;sv('day',day);if(day==6){confetti(new THREE.Vector3(0,4,0));snd(1000,.5)}sday()}else{sv('day',0);go('menu')}}
+
+/* ---------- Creative Mode ---------- */
+const KS=['tree','flower','rock','tiger','elephant','cloud','bird','sun','moon'],EM=['🌳','🌸','🪨','🐯','🐘','☁️','🐦','☀️','🌙'];let sel='tree',put=[];
+function tool(){$('tbr').innerHTML=KS.map((k,i)=>`<button aria-pressed="${k==sel}" aria-label="${t('it')[i]}" title="${t('it')[i]}" onclick="sel='${k}';tool()">${EM[i]}</button>`).join('')+`<button aria-label="${t('undo')}" title="${t('undo')}" onclick="undo()">↩️</button><button aria-label="${t('clr')}" title="${t('clr')}" onclick="clr()">🗑️</button><button aria-label="${t('photo')}" title="${t('photo')}" onclick="photo()">📷</button>`}
+function cput(p){put.push(place(sel,p))}
+function undo(){const g=put.pop();if(g)world.remove(g)}
+function clr(){put.forEach(g=>world.remove(g));put=[]}
+function photo(){R.render(S,cam);snd(880);ui(`<img src="${R.domElement.toDataURL('image/png')}" alt="${t('photo')}" style="width:100%;border-radius:12px"><p>${t('save')}</p><button onclick="ui()">${t('got')}</button>`)}
+
+/* ---------- Quiz Mode ---------- */
+/* Thiên thần nhỏ (NPC) hỏi đáp; mỗi câu diễn ra trong một khung cảnh của câu chuyện; NPC và Eva/Adam phản ứng theo câu trả lời */
+let qi=0,qs=0,tr=0,dis=[],mood='talk',npc;
+function angel(){const g=new THREE.Group(),sk=0xf5d0b0,bl=0xf5d76e;
+ box(.6,1.1,.34,0xffffff,0,.95,0,g);box(.64,.1,.38,0xffd23f,0,1.15,0,g);
+ box(.5,.5,.5,sk,0,1.75,0,g);box(.56,.22,.56,bl,0,2.05,0,g);box(.56,.3,.08,bl,0,1.8,-.28,g);box(.2,.1,.06,bl,-.12,1.97,.27,g);
+ [-1,1].forEach(s=>{box(.15,.18,.02,0xffffff,s*.12,1.76,.26,g);box(.08,.14,.02,0x2a5caa,s*.11,1.76,.27,g)});box(.16,.04,.02,0x8a3b3b,0,1.6,.26,g);
+ const h=new THREE.Mesh(new THREE.TorusGeometry(.3,.04,6,16),new THREE.MeshBasicMaterial({color:0xffe066}));h.rotation.x=Math.PI/2;h.position.y=2.35;g.add(h);
+ g.wings=[-1,1].map(s=>{const p=new THREE.Group();p.position.set(s*.2,1.4,-.2);ball(.5,0xffffff,s*.45,.1,0,.4,1.3,.25,p);g.add(p);return p});
+ g.arms=[limb(g,0xffffff,-.4,1.5),limb(g,0xffffff,.4,1.5)];g.legs=[];return g}
+function qscene(i){wipe();bt=1;garden(1);st.visible=false;mn.visible=false;yaw=0;pit=.25;dist=11;tgt.set(0,.3,0);mood='talk';tr=0;dis=[];
+ const rv=()=>new THREE.Vector3(rnd(-9,9),0,rnd(-9,-3)).clampLength(0,10);
+ if(i==0){bt=.3;sn.visible=false;st.visible=true;const g=glow('rgba(255,240,170,.95)',16);g.position.set(0,3,-4);world.add(g)}
+ else if(i==1)for(let j=0;j<16;j++)place(j%3?'tree':'flower',rv());
+ else if(i==2){for(let j=0;j<6;j++)A[4](rv());A[1]()}
+ else if(i==3)show();
+ else{bt=.7;sn.visible=false;mn.visible=true;st.visible=true;show()}
+ npc=angel();npc.position.set(i>2?-2.8:0,0,i>2?2.5:2);npc.scale.setScalar(1.3);world.add(npc);
+ anims.push(t=>{const w=npc.wings,m=mood;w[0].rotation.z=.3+Math.sin(t*(m=='happy'?10:4))*.2;w[1].rotation.z=-w[0].rotation.z;
+  npc.position.y=m=='happy'?Math.abs(Math.sin(t*8))*.9:.25+Math.sin(t*2)*.12;npc.rotation.y=m=='sad'?Math.sin(t*16)*.5:Math.sin(t)*.15;
+  npc.arms[1].rotation.z=m=='happy'?2.6+Math.sin(t*12)*.4:m=='talk'?.6+Math.sin(t*5)*.25:.1})}
+function quiz(){qi=0;qs=0;qscene(0);ui(`<p>👼 ${t('nIn')}</p><button onclick="qshow()">${t('next')}</button>`,'dlg')}
+function qdraw(m){const q=L[lang].qz[qi];ui(`<p>👼 ${m}</p>`+q[1].map((o,i)=>dis.includes(i)?'':`<button onclick="qa(${i})">${'ABC'[i]}. ${o}</button>`).join(''),'dlg')}
+function qshow(){const Q=L[lang].qz;
+ if(qi>=Q.length){const b=+ld('best',0);if(qs>b)sv('best',qs);mood='happy';confetti({x:0,y:3,z:2});ui(`<h2>🏆 ${qs}/${Q.length}</h2><p>👼 ${t('nEnd')}</p><p>${t('best')}: ${Math.max(b,qs)}</p><button onclick="quiz()">${t('again')}</button><button onclick="go('menu')">🏠 ${t('menu')}</button>`,'dlg');return}
+ qscene(qi);qdraw(Q[qi][0])}
+function qa(i){const q=L[lang].qz[qi];
+ if(i==q[2]){if(!tr)qs++;mood='happy';snd(880,.3);confetti({x:0,y:3,z:2});ui(`<p>👼 ${t('nOk')} ${q[1][q[2]]} (${q[3]})</p><button onclick="qi++;qshow()">${t('next')}</button>`,'dlg')}
+ else{tr=1;mood='sad';snd(200,.3);dis.push(i);setTimeout(()=>{mood='talk'},1000);qdraw(t('nNo'))}}
+
+/* ---------- Obby Mode: 3 màn, sinh nền tảng theo độ khó ---------- */
+let lv=0,P=[],fr=[],pc,vy=0,onG=1,cp,dead=0,tm=0,fc=0,won=0;
+function seed(k){let s=k*9301+49297;return()=>(s=(s*9301+49297)%233280)/233280}
+const CI=['🍎','⭐','🐟'],AG=[];let sp=null;
+function gen(k){const r=seed(k+3),N=10+k*4;P=[{x:0,y:0,z:0,s:6,cp:1}];
+ for(let i=1;i<=N;i++){const a=P[i-1],s=i==N?5:4.2-k*.5;P.push({x:a.x+(r()-.5)*4,y:k==2?0:Math.max(0,a.y+r()*.8-.2),z:a.z-(a.s/2+1.1+k*.4+r()*.5+s/2),s,cp:i%6==0&&i<N,goal:i==N})}}
+function cyl(rt,rb,h,c,x,y,z,p,sg){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,sg||12),mat(c));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;(p||world).add(m);return m}
+function col(k,x,y,z){let g;if(k==0){g=new THREE.Group();ball(.3,0xe53935,0,0,0,1,1,1,g);box(.08,.2,.08,0x6b4423,0,.32,0,g);box(.18,.05,.1,0x3fa34d,.1,.38,0,g)}else g=k==1?new THREE.Mesh(new THREE.OctahedronGeometry(.4),mat(0xffd23f)):ITEMS.fish();g.position.set(x,y,z);world.add(g);return g}
+function cheer(g,y0){anims.push(t=>{g.position.y=y0+(Math.hypot(pc.position.x-g.position.x,pc.position.z-g.position.z)<9?Math.abs(Math.sin(t*7))*.6:0)})}
+/* Obby theo câu chuyện: Ngày 3 đồng cỏ (gốc cây), Ngày 4 bầu trời sao (mây trôi), Ngày 5 mặt nước (lá sen, cá nhảy, chim). Điểm lưu = thiên thần kể chuyện; đích cuối = Ađam và Eva. */
+function obby(k){lv=k;wipe();ui();$('sy').hidden=true;bt=[1,.35,1][k];gen(k);fr=[];AG.length=0;sp=null;const gp=P[P.length-1];
+ if(k!=1){const w=new THREE.Mesh(new THREE.PlaneGeometry(600,600),mat(k?0x3b9be8:0x6cc36a));w.rotation.x=-Math.PI/2;w.position.set(0,k?-.3:-4,gp.z/2);w.receiveShadow=true;world.add(w)}
+ P.forEach((p,i)=>{const r=p.s/2,g=p.g=new THREE.Group();world.add(g);
+  if(k&&i%3==2&&!p.cp&&!p.goal){p.ox=p.x;p.amp=1.8;p.ph=rnd(0,6)}
+  if(k==0){cyl(r*.85,r*.7,p.y+4,0x8b5a2b,p.x,(p.y-4)/2,p.z,g,7);cyl(r,r,.25,0x4fb85a,p.x,p.y-.12,p.z,g,7)}
+  else if(k==1)[[0,1],[.65,.65],[-.65,.65]].forEach(a=>{ball(r*a[1],0xffffff,p.x+a[0]*r,p.y-.4*r*a[1],p.z,1,.4,1,g).material=CM});
+  else{cyl(r,r,.15,0x3fae4c,p.x,p.y-.07,p.z,g,16);if(i%2)ball(.3,0xff8fb3,p.x+r*.5,p.y+.15,p.z,1,.7,1,g)}
+  if(p.cp||p.goal)cyl(r*.8,r*.8,.06,p.goal?0xffd23f:0xff8fb3,p.x,p.y+.03,p.z,g,16);
+  if(p.cp){const a=angel();a.position.set(p.x+r*.55,p.y,p.z);a.scale.setScalar(1.1);world.add(a);AG.push(a)}
+  if(i%2&&!p.goal&&!p.amp)fr.push({m:col(k,p.x,p.y+1.3,p.z)});
+  const x=p.x+(i%2?-1:1)*rnd(6,10);
+  if(k==0){const a=place(i%4==0?(i%8?'elephant':'tiger'):i%3?'tree':'flower',{x,z:p.z},rnd(1.3,2));a.position.y=-4;if(i%4==0)cheer(a,-4)}
+  else if(k==1){if(i%3==0)place('cloud',{x,z:p.z},rnd(1.5,2.5)).position.y=rnd(-6,10)}
+  else if(i%2==0){const f=ITEMS.fish(),ph=rnd(0,6);f.position.set(p.x+(i%4?3:-3),-.3,p.z);world.add(f);anims.push(t=>{const u=Math.sin(t*2+ph);f.position.y=-.3+Math.max(0,u)*1.8;f.rotation.x=-Math.cos(t*2+ph)*.6})}
+  else place('bird',{x,z:p.z},1.6)});
+ if(k==1){const q=[];for(let i=0;i<300;i++)q.push(rnd(-70,70),rnd(-5,60),rnd(30,-170));const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(q,3));world.add(new THREE.Points(gm,new THREE.PointsMaterial({color:0xffffff,size:.9})));
+  place('sun',{x:18,z:P[6].z},2.5);place('moon',{x:-18,z:P[12].z},3);
+  const s=new THREE.Mesh(new THREE.OctahedronGeometry(1),new THREE.MeshBasicMaterial({color:0xffd23f})),gl=glow('rgba(255,225,120,.9)',10);s.position.set(gp.x,gp.y+3,gp.z);gl.position.copy(s.position);world.add(s,gl);anims.push(t=>{s.rotation.y=t})}
+ else place('tree',{x:gp.x,z:gp.z-1.5},1.6).position.y=gp.y;
+ if(k==2)[ADAM,EVA].forEach((F,j)=>{const h=F();h.position.set(gp.x+(j?.9:-.9),gp.y,gp.z+.8);h.scale.setScalar(1.2);world.add(h);anims.push(t=>{h.arms[1].rotation.z=2.5+Math.sin(t*6)*.3})});
+ anims.push(t=>AG.forEach(a=>{const d=Math.hypot(pc.position.x-a.position.x,pc.position.z-a.position.z);a.wings[0].rotation.z=.3+Math.sin(t*4)*.15;a.wings[1].rotation.z=-a.wings[0].rotation.z;a.rotation.y=Math.atan2(pc.position.x-a.position.x,pc.position.z-a.position.z);a.arms[1].rotation.z=d<6?2.6+Math.sin(t*8)*.3:.1}));
+ pc=ADAM();world.add(pc);cp=P[0];vy=0;onG=1;tm=0;dead=0;fc=0;won=0;yaw=0;pit=.45;dist=10;tgt.set(0,1.5,0);if(k)say(L[lang].lvm[k][0])}
+function win(){won=1;const q=pc.position;confetti(q);confetti(tv.set(q.x,q.y+2,q.z));snd(1000,.6);
+ ui(`<h2>🎉 ${t('win')}</h2><p>👼 ${L[lang].lvm[lv][2]}</p><p>⏱ ${tm.toFixed(1)}s · 💀 ${dead} · ${CI[lv]} ${fc}/${fr.length}</p>`+(lv<2?`<button onclick="obby(${lv+1})">${t('next')}</button>`:'')+`<button onclick="obby(${lv})">${t('again')}</button>`)}
+function obU(dt,T){
+ for(const f of fr)f.m.rotation.y+=dt*2;
+ for(const p of P)if(p.amp){const nx=p.ox+Math.sin(T*.9+p.ph)*p.amp,d=nx-p.x;p.x=nx;p.g.position.x=nx-p.ox;if(sp==p&&onG)pc.position.x+=d}
+ if(won)return;tm+=dt;
+ const f=(keys.w||keys.ArrowUp||tp.u?1:0)-(keys.s||keys.ArrowDown||tp.d?1:0),r=(keys.d||keys.ArrowRight||tp.r?1:0)-(keys.a||keys.ArrowLeft||tp.l?1:0);
+ let mx=-Math.sin(yaw)*f+Math.cos(yaw)*r,mz=-Math.cos(yaw)*f-Math.sin(yaw)*r;const l=Math.hypot(mx,mz);if(l>0){mx/=l;mz/=l;pc.rotation.y=Math.atan2(mx,mz)}
+ const q=pc.position,py=q.y;q.x+=mx*6*dt;q.z+=mz*6*dt;
+ if((keys[' ']||tp.j)&&onG){vy=9.5;snd(660,.1)}
+ vy-=24*dt;q.y+=vy*dt;onG=0;
+ if(vy<=0)for(const p of P)if(py>=p.y-.15&&q.y<=p.y&&Math.hypot(q.x-p.x,q.z-p.z)<p.s/2+.1){q.y=p.y;vy=0;onG=1;sp=p;if(p.cp&&cp!=p){cp=p;snd(990,.2);say(L[lang].lvm[lv][1])}if(p.goal)win();break}
+ if(q.y<(lv==1?cp.y-14:lv?-1.3:-3.5)){dead++;q.set(cp.x,cp.y+.5,cp.z);vy=0;snd(150,.4)}
+ for(const f2 of fr)if(f2.m.visible&&Math.hypot(f2.m.position.x-q.x,f2.m.position.y-q.y-1,f2.m.position.z-q.z)<1.1){f2.m.visible=false;fc++;snd(1200,.1)}
+ swing(pc,T,l>0?.8:0);tgt.lerp(tv.set(q.x,q.y+1.5,q.z),Math.min(1,dt*8));
+ $('hud').textContent=`${t('day')} ${lv+3} · ⏱ ${tm.toFixed(1)}s · 💀 ${dead} · ${CI[lv]} ${fc}/${fr.length}`}
+
+/* ---------- Chuyển chế độ + vòng lặp ---------- */
+function go(m){mode=m;wipe();ui();$('tbr').hidden=m!='create';$('pad').hidden=!(TOUCH&&m=='obby');$('bm').hidden=m=='menu';$('hud').textContent='';$('hp').hidden=true;$('sy').hidden=true;
+ yaw=0;pit=.5;dist=22;tgt.set(0,2,0);bt=1;
+ if(m=='menu'){garden(1);show();menu()}
+ if(m=='story'){garden(0);story()}
+ if(m=='create'){garden(1);tool()}
+ if(m=='quiz')quiz();
+ if(m=='obby'){obby(0);help()}}
+let last=0;
+function loop(ms){requestAnimationFrame(loop);const T=ms/1000,dt=Math.min(.05,T-last);last=T;
+ br+=(bt-br)*Math.min(1,dt*3);hemi.intensity=.12+.85*br;sun.intensity=.95*br;S.background.copy(C0).lerp(C1,br);
+ anims=anims.filter(f=>!f(T,dt));
+ if(mode=='obby')obU(dt,T);else if(mode=='menu')yaw+=dt*.12;
+ orb();sky.position.copy(cam.position);sky.material.color.setScalar(.04+.96*br);sun.position.set(tgt.x+10,tgt.y+18,tgt.z+8);sun.target.position.copy(tgt);sun.target.updateMatrixWorld();R.render(S,cam)}
+rs();applyLang();go('menu');requestAnimationFrame(loop);
+</script>
+</body>
+</html>
